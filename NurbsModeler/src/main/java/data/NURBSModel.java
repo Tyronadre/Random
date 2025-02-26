@@ -3,28 +3,33 @@ package data;
 import java.util.ArrayList;
 import java.util.List;
 
-// Modellklasse: speichert Kontrollpunkte, Grad und Knotenvector und enthält Methoden zur Aktualisierung.
 public class NURBSModel {
     private List<ControlPoint> controlPoints;
     private int degree;
     private double[] knots;
 
     public NURBSModel() {
-        // Standard: Viertelkreis mit quadratischer NURBS (Grad = 2) und 3 Kontrollpunkten
         degree = 2;
         controlPoints = new ArrayList<>();
-        controlPoints.add(new ControlPoint(1.0, 0.0, 1.0));
-        controlPoints.add(new ControlPoint(Math.cos(Math.toRadians(45)), Math.sin(Math.toRadians(45)), Math.cos(Math.toRadians(45))));
+
         controlPoints.add(new ControlPoint(0.0, 1.0, 1.0));
+        controlPoints.add(new ControlPoint(0.0, 1.0, 1.0));
+        controlPoints.add(new ControlPoint(1.0, 1.0, Math.cos(Math.toRadians(45))));
+        controlPoints.add(new ControlPoint(1.0, 0.0, 1.0));
+        controlPoints.add(new ControlPoint(1.0, -1.0, Math.cos(Math.toRadians(45))));
+        controlPoints.add(new ControlPoint(0.0, -1.0, 1.0));
+        controlPoints.add(new ControlPoint(-1.0, -1.0, Math.cos(Math.toRadians(45))));
+        controlPoints.add(new ControlPoint(-1.0, 0.0, 1.0));
+        controlPoints.add(new ControlPoint(-1.0, 1.0, Math.cos(Math.toRadians(45))));
+        controlPoints.add(new ControlPoint(0.0, 1.0, 1.0));
+        controlPoints.add(new ControlPoint(0.0, 1.0, 1.0));
+
+
         knots = generateUniformKnotVector(controlPoints.size(), degree);
     }
 
     public List<ControlPoint> getControlPoints() {
         return controlPoints;
-    }
-
-    public void setControlPoints(List<ControlPoint> cps) {
-        this.controlPoints = cps;
     }
 
     public int getDegree() {
@@ -43,7 +48,6 @@ public class NURBSModel {
         this.knots = knots;
     }
 
-    // Generiert einen uniformen, geklammerten Knotenvector
     public double[] generateUniformKnotVector(int numControlPoints, int degree) {
         int n = numControlPoints - 1;
         int m = n + degree + 1;
@@ -59,9 +63,12 @@ public class NURBSModel {
         return kv;
     }
 
-    // Führt Knoteneinfügung an Parameterwert u durch.
-    // Dabei werden neue Kontrollpunkte in homogenen Koordinaten berechnet, sodass die Kurve unverändert bleibt.
-    public void insertKnot(double u) throws IllegalArgumentException {
+    /**
+     * Inserts a knot at the given parameter value.
+     * @param u - the parameter value
+     * @throws IndexOutOfBoundsException if the parameter value is out of range
+     */
+    public void insertKnot(double u) throws IndexOutOfBoundsException {
         double[] U = knots;
         int p = degree;
         int n = controlPoints.size() - 1;
@@ -115,6 +122,18 @@ public class NURBSModel {
 
         // Aktualisiere Modell
         controlPoints = newCP;
+        knots = newKnots;
+    }
+
+    /**
+     * Removes the control point and the corresponding knot at the given index.
+     * @param index - the index of the control point to remove
+     */
+    public void removeControlPoint(int index) throws IndexOutOfBoundsException{
+        this.controlPoints.remove(index);
+        double[] newKnots = new double[knots.length - 1];
+        System.arraycopy(knots, 0, newKnots, 0, index);
+        System.arraycopy(knots, index + 1, newKnots, index, newKnots.length - index);
         knots = newKnots;
     }
 }

@@ -2,6 +2,10 @@ package gui;
 
 import data.ControlPoint;
 import data.NURBSModel;
+import gui.events.ControlPointMovedEvent;
+import gui.events.EventSystem;
+import gui.events.KnotVectorChangedEvent;
+import gui.events.NURBSResolutionChangedEvent;
 
 import javax.swing.*;
 import java.awt.*;
@@ -10,14 +14,13 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-// Panel, das die NURBS-Kurve zeichnet, mit Mausinteraktionen (Panning und Drag & Drop).
 public class NURBSPanel extends JPanel {
     private final NURBSModel model;
-    // Panning-Parameter
     private int panOffsetX = 0, panOffsetY = 0;
-    // Für Mausinteraktionen
     private int lastMouseX, lastMouseY;
     private int selectedPointIndex = -1;
+    private int resolution = 100;
+    private final EventSystem eventSystem = EventSystem.getInstance();
 
     public NURBSPanel(NURBSModel model) {
         this.model = model;
@@ -53,8 +56,14 @@ public class NURBSPanel extends JPanel {
                     int baseOffsetY = 400;
                     double newX = (mousePoint.x - baseOffsetX - panOffsetX) / scale;
                     double newY = (baseOffsetY + panOffsetY - mousePoint.y) / scale;
-                    model.getControlPoints().get(selectedPointIndex).x = newX;
-                    model.getControlPoints().get(selectedPointIndex).y = newY;
+                    var cp = model.getControlPoints().get(selectedPointIndex);
+                    var oldValues = cp.getArray();
+
+                    cp.x = newX;
+                    cp.y = newY;
+
+                    var newValues = cp.getArray();
+                    eventSystem.dispatch(new ControlPointMovedEvent(cp, oldValues, newValues));
                 } else {
                     // Panning: Aktualisiere die Verschiebung.
                     int dx = e.getX() - lastMouseX;
@@ -74,6 +83,12 @@ public class NURBSPanel extends JPanel {
         };
         addMouseListener(ma);
         addMouseMotionListener(ma);
+
+        eventSystem.subscribe(KnotVectorChangedEvent.class, event -> repaint());
+        eventSystem.subscribe(NURBSResolutionChangedEvent.class, e -> {
+            resolution = e.getNewResolution();
+            repaint();
+        });
     }
 
     @Override
@@ -100,7 +115,7 @@ public class NURBSPanel extends JPanel {
 
         // Berechne und zeichne die NURBS-Kurve (Blau)
         g2.setColor(Color.BLUE);
-        java.util.List<Point> curvePoints = evaluateCurvePoints(200);
+        java.util.List<Point> curvePoints = evaluateCurvePoints(resolution * model.getControlPoints().size());
         for (int i = 0; i < curvePoints.size() - 1; i++) {
             Point p1 = curvePoints.get(i);
             Point p2 = curvePoints.get(i + 1);
@@ -155,18 +170,14 @@ public class NURBSPanel extends JPanel {
     // Rekursive Berechnung der B-Spline-Basisfunktion N_{i,p}(u).
     private double bsplineBasis(int i, int p, double u, double[] U) {
         if (p == 0) {
-            if ((U[i] <= u && u < U[i + 1]) ||
-                    (u == U[U.length - 1] && u >= U[i] && u <= U[i + 1]))
-                return 1.0;
+            if ((U[i] <= u && u < U[i + 1]) || (u == U[U.length - 1] && u >= U[i] && u <= U[i + 1])) return 1.0;
             return 0.0;
         } else {
             double left = 0.0, right = 0.0;
             double denom1 = U[i + p] - U[i];
             double denom2 = U[i + p + 1] - U[i + 1];
-            if (denom1 != 0)
-                left = (u - U[i]) / denom1 * bsplineBasis(i, p - 1, u, U);
-            if (denom2 != 0)
-                right = (U[i + p + 1] - u) / denom2 * bsplineBasis(i + 1, p - 1, u, U);
+            if (denom1 != 0) left = (u - U[i]) / denom1 * bsplineBasis(i, p - 1, u, U);
+            if (denom2 != 0) right = (U[i + p + 1] - u) / denom2 * bsplineBasis(i + 1, p - 1, u, U);
             return left + right;
         }
     }

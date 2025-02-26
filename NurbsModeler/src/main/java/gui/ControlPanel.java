@@ -1,117 +1,140 @@
 package gui;
 
-import data.ControlPoint;
 import data.NURBSModel;
+import gui.events.ControlPointMovedEvent;
+import gui.events.EventSystem;
+import gui.events.KnotVectorChangedEvent;
+import gui.events.NURBSResolutionChangedEvent;
 
 import javax.swing.*;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 
-// Steuerungspanel: Enthält die Tabelle der Kontrollpunkte, einen Spinner für den Grad,
-// ein Textfeld zur Anzeige/Bearbeitung des Knotenvectors und Felder zum Knoteneinfügen sowie
-// eine Anzeige des Kontrollpolygons.
 public class ControlPanel extends JPanel {
-    private final NURBSModel model;
-    private final ControlPointTableModel tableModel;
-    private final JSpinner degreeSpinner;
-    private JTextField knotField;
-    // Für Knoteneinfügung:
     private final JTextField insertKnotField;
-    // Anzeige des Kontrollpolygons:
-    private final JTextArea polygonDisplay;
+    private final EventSystem eventSystem = EventSystem.getInstance();
 
     public ControlPanel(NURBSModel model, NURBSPanel drawingPanel) {
-        this.model = model;
-        setLayout(new BorderLayout());
+        setLayout(new GridBagLayout());
 
         // Tabelle für Kontrollpunkte:
-        tableModel = new ControlPointTableModel(model.getControlPoints());
-        JTable table = new JTable(tableModel);
-        JScrollPane tableScroll = new JScrollPane(table);
-        tableScroll.setPreferredSize(new Dimension(400, 150));
+        JScrollPane controlPointsTable = getControlPointsTable(model, drawingPanel);
 
-        // Panel für Knoteneinfügen:
-        JPanel insertPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        insertPanel.add(new JLabel("Insert Knot:"));
+        // Panel to insert Knots:
+        JPanel knotControl = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JButton insertKnotButton = getInsertKnotButton(model);
         insertKnotField = new JTextField(8);
-        insertPanel.add(insertKnotField);
-        JButton insertKnotButton = getInsertKnotButton(model, drawingPanel);
-        insertPanel.add(insertKnotButton);
+        insertKnotField.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                if (e.getKeyChar() == KeyEvent.VK_ENTER) {
+                    insertKnotButton.doClick();
+                }
+            }
+        });
+        knotControl.add(insertKnotButton);
+        knotControl.add(insertKnotField);
 
-        // Panel für Grad und Knotenvector:
+        // Panel for other stuff:
         JPanel paramPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         paramPanel.add(new JLabel("Degree:"));
-        degreeSpinner = new JSpinner(new SpinnerNumberModel(model.getDegree(), 1, 10, 1));
+        var degreeSpinner = new JSpinner(new SpinnerNumberModel(model.getDegree(), 1, 10, 1));
         degreeSpinner.addChangeListener(e -> {
             int newDegree = (Integer) degreeSpinner.getValue();
             model.setDegree(newDegree);
-            // Aktualisiere Knotenvector gemäß dem neuen Grad:
             double[] newKnots = model.generateUniformKnotVector(model.getControlPoints().size(), newDegree);
             model.setKnots(newKnots);
-            knotField.setText(knotVectorToString(newKnots));
-            drawingPanel.repaint();
+            eventSystem.dispatch(new KnotVectorChangedEvent(this, newKnots));
         });
         paramPanel.add(degreeSpinner);
-        paramPanel.add(new JLabel("Knot Vector (comma separated):"));
-        knotField = new JTextField(30);
-        knotField.setText(knotVectorToString(model.getKnots()));
-        paramPanel.add(knotField);
-        JButton applyKnotsButton = getApplyKnotsButton(model, drawingPanel);
-        paramPanel.add(applyKnotsButton);
+        var resolutionSpinner = new JSpinner(new SpinnerNumberModel(200, 100, 1000, 100));
+        resolutionSpinner.addChangeListener(e -> eventSystem.dispatch(new NURBSResolutionChangedEvent(this, (Integer) resolutionSpinner.getValue())));
+        paramPanel.add(new JLabel("Resolution:"));
+        paramPanel.add(resolutionSpinner);
 
-        // Anzeige des Kontrollpolygons (als Liste):
-        polygonDisplay = new JTextArea(5, 30);
-        polygonDisplay.setEditable(false);
-        updatePolygonDisplay();
-        JScrollPane polygonScroll = new JScrollPane(polygonDisplay);
-        polygonScroll.setBorder(BorderFactory.createTitledBorder("Control Polygon"));
+        var knotPanel = new KnotPanel(model);
 
         // Zusammenstellen des ControlPanels:
-        JPanel topPanel = new JPanel(new BorderLayout());
-        topPanel.add(tableScroll, BorderLayout.CENTER);
-        topPanel.add(insertPanel, BorderLayout.SOUTH);
+        var gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 1;
+        gbc.weighty = 0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        JPanel bottomPanel = new JPanel(new BorderLayout());
-        bottomPanel.add(paramPanel, BorderLayout.NORTH);
-        bottomPanel.add(polygonScroll, BorderLayout.CENTER);
+        add(paramPanel, gbc);
+        gbc.gridy = 1;
+        add(knotControl, gbc);
+        gbc.gridy = 2;
 
-        add(topPanel, BorderLayout.NORTH);
-        add(bottomPanel, BorderLayout.CENTER);
+        add(knotPanel, gbc);
+        gbc.gridy = 3;
+        gbc.weighty = 1;
+        gbc.fill = GridBagConstraints.BOTH;
+        add(controlPointsTable, gbc);
+
     }
 
-    private JButton getApplyKnotsButton(NURBSModel model, NURBSPanel drawingPanel) {
-        JButton applyKnotsButton = new JButton("Apply Knots");
-        applyKnotsButton.addActionListener(e -> {
-            String text = knotField.getText();
-            String[] parts = text.split(",");
-            List<Double> knotList = new ArrayList<>();
-            try {
-                for (String s : parts) {
-                    knotList.add(Double.parseDouble(s.trim()));
+    private JScrollPane getControlPointsTable(NURBSModel model, NURBSPanel drawingPanel) {
+        var controlPointsTableModel = new ControlPointTableModel(model.getControlPoints());
+        controlPointsTableModel.addTableModelListener(e -> drawingPanel.repaint());
+        JTable table = new JTable(controlPointsTableModel);
+        JPopupMenu popupMenu = new JPopupMenu();
+        popupMenu.addPopupMenuListener(new PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(PopupMenuEvent e) {
+                int row = table.rowAtPoint(table.getMousePosition());
+                if (row == -1) {
+                    return;
                 }
-                double[] knots = new double[knotList.size()];
-                for (int i = 0; i < knots.length; i++) {
-                    knots[i] = knotList.get(i);
-                }
-                if (knots.length != model.getControlPoints().size() + model.getDegree() + 1) {
-                    JOptionPane.showMessageDialog(this, "Invalid knot vector length.", "Error", JOptionPane.ERROR_MESSAGE);
-                } else {
-                    model.setKnots(knots);
-                    drawingPanel.repaint();
-                }
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Invalid knot vector format.", "Error", JOptionPane.ERROR_MESSAGE);
+                table.setRowSelectionInterval(row, row);
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent e) {
+
+            }
+
+            @Override
+            public void popupMenuCanceled(PopupMenuEvent e) {
             }
         });
-        return applyKnotsButton;
+        JMenuItem deleteItem = new JMenuItem("Delete");
+        popupMenu.add(deleteItem);
+        deleteItem.addActionListener(e -> {
+            int row = table.getSelectedRow();
+            if (row != -1) {
+                // Testen ob dieser Punkt noch entfernt werden kann, um die Mindestanzahl an Kontrollpunkten zu gewährleisten
+                if (controlPointsTableModel.getRowCount() <= model.getDegree() + 1) {
+                    JOptionPane.showMessageDialog(this, "Cannot remove control point. Minimum number of control points reached.", "Error", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                model.removeControlPoint(row);
+                drawingPanel.repaint();
+                this.repaint();
+            }
+        });
+        table.setComponentPopupMenu(popupMenu);
+
+        var controlPointsTable = new JScrollPane(table);
+
+        eventSystem.subscribe(KnotVectorChangedEvent.class, e -> {
+            controlPointsTableModel.setControlPoints(model.getControlPoints());
+            controlPointsTableModel.fireTableDataChanged();
+        });
+        eventSystem.subscribe(ControlPointMovedEvent.class, e -> controlPointsTable.repaint());
+
+        return controlPointsTable;
     }
 
-    private JButton getInsertKnotButton(NURBSModel model, NURBSPanel drawingPanel) {
-        JButton insertKnotButton = new JButton("Insert Knot");
+    private JButton getInsertKnotButton(NURBSModel model) {
+        JButton insertKnotButton = new JButton("Insert Knot:");
         insertKnotButton.addActionListener(e -> {
             try {
-                double u = Double.parseDouble(insertKnotField.getText().trim());
+                double u = Double.parseDouble(insertKnotField.getText().trim().replaceAll(",", "."));
                 // Überprüfe, ob u in der gültigen Domäne liegt:
                 double[] U = model.getKnots();
                 int p = model.getDegree();
@@ -122,39 +145,14 @@ public class ControlPanel extends JPanel {
                 }
                 // Führe Knoteneinfügung durch:
                 model.insertKnot(u);
-                // Aktualisiere Knotenvector-Feld:
-                knotField.setText(knotVectorToString(model.getKnots()));
                 // Aktualisiere Tabelle und Polygonanzeige:
-                tableModel.setControlPoints(model.getControlPoints());
-                tableModel.fireTableDataChanged();
-                updatePolygonDisplay();
-                drawingPanel.repaint();
+                eventSystem.dispatch(new KnotVectorChangedEvent(this, model.getKnots()));
             } catch (NumberFormatException ex) {
                 JOptionPane.showMessageDialog(this, "Invalid knot value format.", "Error", JOptionPane.ERROR_MESSAGE);
-            } catch (IllegalArgumentException ex) {
+            } catch (IndexOutOfBoundsException ex) {
                 JOptionPane.showMessageDialog(this, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
         return insertKnotButton;
-    }
-
-    private void updatePolygonDisplay() {
-        StringBuilder sb = new StringBuilder();
-        List<ControlPoint> cps = model.getControlPoints();
-        for (int i = 0; i < cps.size(); i++) {
-            sb.append("P").append(i).append(" = ").append(cps.get(i).toString()).append("\n");
-        }
-        polygonDisplay.setText(sb.toString());
-    }
-
-    private String knotVectorToString(double[] knots) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < knots.length; i++) {
-            sb.append(knots[i]);
-            if (i < knots.length - 1) {
-                sb.append(", ");
-            }
-        }
-        return sb.toString();
     }
 }

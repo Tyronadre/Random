@@ -11,14 +11,14 @@ public class NURBSModelerGUI {
             NURBSPanel drawingPanel = new NURBSPanel(model);
             ControlPanel controlPanel = new ControlPanel(model, drawingPanel);
 
-            // Verwende ein JSplitPane, damit das GUI.ControlPanel resizable ist.
-            JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, drawingPanel, controlPanel);
-            splitPane.setDividerLocation(550);
+            JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, controlPanel, drawingPanel);
+            splitPane.setDividerLocation(300);
+            splitPane.setEnabled(false);
 
             JFrame frame = new JFrame("NURBS Modeler");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.add(splitPane);
-            frame.setSize(900, 600);
+            frame.setSize(1000, 800);
             frame.setVisible(true);
         });
     }
