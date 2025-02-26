@@ -8,7 +8,7 @@ import java.util.List;
 // TableModel zur Darstellung und Bearbeitung der Kontrollpunkte.
 public class ControlPointTableModel extends AbstractTableModel {
     private List<ControlPoint> controlPoints;
-    private String[] columnNames = {"X", "Y", "Weight"};
+    private final String[] columnNames = {"X", "Y", "Weight"};
 
     public ControlPointTableModel(List<ControlPoint> controlPoints) {
         this.controlPoints = controlPoints;
@@ -31,16 +31,12 @@ public class ControlPointTableModel extends AbstractTableModel {
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
         ControlPoint cp = controlPoints.get(rowIndex);
-        switch (columnIndex) {
-            case 0:
-                return cp.x;
-            case 1:
-                return cp.y;
-            case 2:
-                return cp.weight;
-            default:
-                return null;
-        }
+        return switch (columnIndex) {
+            case 0 -> cp.x;
+            case 1 -> cp.y;
+            case 2 -> cp.weight;
+            default -> null;
+        };
     }
 
     @Override

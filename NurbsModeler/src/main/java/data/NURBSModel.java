@@ -81,13 +81,9 @@ public class NURBSModel {
 
         // Erstelle neue Knotensequenz: Länge m+2
         double[] newKnots = new double[U.length + 1];
-        for (int i = 0; i <= k; i++) {
-            newKnots[i] = U[i];
-        }
+        if (k + 1 >= 0) System.arraycopy(U, 0, newKnots, 0, k + 1);
         newKnots[k + 1] = u;
-        for (int i = k + 1; i < U.length; i++) {
-            newKnots[i + 1] = U[i];
-        }
+        if (U.length - (k + 1) >= 0) System.arraycopy(U, k + 1, newKnots, k + 1 + 1, U.length - (k + 1));
 
         // Knoteneinfügealgorithmus: arbeite in homogenen Koordinaten
         List<ControlPoint> newCP = new ArrayList<>();

@@ -12,7 +12,7 @@ import java.util.List;
 
 // Panel, das die NURBS-Kurve zeichnet, mit Mausinteraktionen (Panning und Drag & Drop).
 public class NURBSPanel extends JPanel {
-    private NURBSModel model;
+    private final NURBSModel model;
     // Panning-Parameter
     private int panOffsetX = 0, panOffsetY = 0;
     // Für Mausinteraktionen
