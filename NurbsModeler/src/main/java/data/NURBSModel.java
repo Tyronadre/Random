@@ -9,20 +9,15 @@ public class NURBSModel {
     private double[] knots;
 
     public NURBSModel() {
-        degree = 2;
+        degree = 3;
         controlPoints = new ArrayList<>();
 
-        controlPoints.add(new ControlPoint(0.0, 1.0, 1.0));
-        controlPoints.add(new ControlPoint(0.0, 1.0, 1.0));
-        controlPoints.add(new ControlPoint(1.0, 1.0, Math.cos(Math.toRadians(45))));
-        controlPoints.add(new ControlPoint(1.0, 0.0, 1.0));
-        controlPoints.add(new ControlPoint(1.0, -1.0, Math.cos(Math.toRadians(45))));
+        controlPoints.add(new ControlPoint(2.0, -0.5, 1.0));
+        controlPoints.add(new ControlPoint(1.0, 1.0, 1.0));
+        controlPoints.add(new ControlPoint(0.0, 0.0, 1.0));
         controlPoints.add(new ControlPoint(0.0, -1.0, 1.0));
-        controlPoints.add(new ControlPoint(-1.0, -1.0, Math.cos(Math.toRadians(45))));
-        controlPoints.add(new ControlPoint(-1.0, 0.0, 1.0));
-        controlPoints.add(new ControlPoint(-1.0, 1.0, Math.cos(Math.toRadians(45))));
-        controlPoints.add(new ControlPoint(0.0, 1.0, 1.0));
-        controlPoints.add(new ControlPoint(0.0, 1.0, 1.0));
+        controlPoints.add(new ControlPoint(-0.5, -0.5, 1.0));
+        controlPoints.add(new ControlPoint(-0.75, 1.0, 1.0));
 
 
         knots = generateUniformKnotVector(controlPoints.size(), degree);

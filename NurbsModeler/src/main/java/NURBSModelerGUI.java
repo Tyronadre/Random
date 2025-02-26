@@ -18,7 +18,7 @@ public class NURBSModelerGUI {
             JFrame frame = new JFrame("NURBS Modeler");
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.add(splitPane);
-            frame.setSize(1000, 800);
+            frame.setSize(1080, 800);
             frame.setVisible(true);
         });
     }
